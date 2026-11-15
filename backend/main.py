@@ -1,7 +1,7 @@
 import json
 import os
 import sqlite3
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -55,8 +55,8 @@ def init_db():
                 con.execute("INSERT INTO guides(title,category,summary,steps,documents,url,warning,verified_at) VALUES(?,?,?,?,?,?,?,?)",
                     (g["title"],g["category"],g["summary"],json.dumps(g["steps"],ensure_ascii=False),json.dumps(g["documents"],ensure_ascii=False),g["url"],g["warning"],None))
 
-@contextmanager
-def startup():
+@asynccontextmanager
+async def startup(app: FastAPI):
     init_db()
     yield
 
