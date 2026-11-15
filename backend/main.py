@@ -57,6 +57,10 @@ def init_db():
             for g in GUIDES:
                 con.execute("INSERT INTO guides(title,category,summary,steps,documents,url,warning,verified_at,location_scope) VALUES(?,?,?,?,?,?,?,?,?)",
                     (g["title"],g["category"],g["summary"],json.dumps(g["steps"],ensure_ascii=False),json.dumps(g["documents"],ensure_ascii=False),g["url"],g["warning"],None,g.get("location_scope","Brasil")))
+        for g in GUIDES:
+            if g.get("location_scope"):
+                con.execute("UPDATE guides SET title=?,category=?,summary=?,steps=?,documents=?,url=?,warning=?,location_scope=? WHERE title IN (?,?)",
+                    (g["title"],g["category"],g["summary"],json.dumps(g["steps"],ensure_ascii=False),json.dumps(g["documents"],ensure_ascii=False),g["url"],g["warning"],g["location_scope"],"Encontrar uma Unidade Básica de Saúde",g["title"]))
 
 @asynccontextmanager
 async def startup(app: FastAPI):
