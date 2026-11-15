@@ -5,3 +5,4 @@ pwdlib[argon2]>=0.2,<1
 python-multipart>=0.0.9
 openai>=1.40,<3
 psycopg[binary]>=3.2,<4
+email-validator>=2.1,<3
