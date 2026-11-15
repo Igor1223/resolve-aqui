@@ -7,11 +7,12 @@
 <section id="list" class="grid"></section><section id="detail" class="detail hidden"></section>
 <section class="panel"><h2>Assistente Resolve Aqui</h2><p class="muted">Descreva sua dúvida. Faça login para salvar seu histórico e consultar a IA, quando configurada.</p><div id="auth" class="auth"><input id="name" placeholder="Seu nome (cadastro)"><input id="email" type="email" placeholder="E-mail"><input id="pass" type="password" placeholder="Senha (mín. 8 caracteres)"><button onclick="signup()">Criar conta</button><button class="secondary" onclick="signin()">Entrar</button><button class="secondary" onclick="logout()">Sair</button></div><div class="chatrow"><input id="question" placeholder="Conte o que você precisa resolver..."><button onclick="ask()">Enviar</button></div><div id="answer" class="answer hidden"></div></section>
 <p class="notice">Projeto independente. Não representa órgãos públicos. Confirme informações nos canais oficiais. Nunca informe senhas ou códigos de autenticação.</p></main>
-<script>
+<script src="/config.js"></script><script>
+const API_BASE=(window.RESOLVE_API_URL||'').replace(/\\/$/,'');
 let token=localStorage.getItem('ra_token'), deferredPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e});
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
-const api=async(path,opts={})=>{opts.headers={...(opts.headers||{}),...(token?{Authorization:'Bearer '+token}:{})};let r=await fetch(path,opts);let d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.detail||'Não foi possível concluir.');return d};
+const api=async(path,opts={})=>{opts.headers={...(opts.headers||{}),...(token?{Authorization:'Bearer '+token}:{})};let r=await fetch(API_BASE+path,opts);let d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.detail||'Não foi possível concluir.');return d};
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 async function load(){try{let c=document.getElementById('cat').value||'Todas',q=document.getElementById('q').value;let data=await api('/api/guides?q='+encodeURIComponent(q)+'&category='+encodeURIComponent(c));document.getElementById('count').textContent=data.length+' orientações encontradas';document.getElementById('list').innerHTML=data.length?data.map(g=>'<button class="card" onclick="showGuide('+g.id+')"><div class="cat">'+esc(g.category)+'</div><h2>'+esc(g.title)+'</h2><p>'+esc(g.summary)+'</p></button>').join(''):'<p>Nenhum guia encontrado.</p>'}catch(e){document.getElementById('count').textContent=e.message}}
 async function init(){try{let cats=await api('/api/categories');document.getElementById('cat').innerHTML=cats.map(x=>'<option>'+esc(x)+'</option>').join('');}catch{}load()}
