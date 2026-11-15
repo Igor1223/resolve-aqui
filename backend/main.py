@@ -26,7 +26,7 @@ password_hash = PasswordHash.recommended()
 GUIDES = [
  {"title":"Emitir ou consultar o CPF","category":"Documentos","summary":"Consulte os canais oficiais para verificar sua situação cadastral ou acessar serviços relacionados ao CPF.","steps":["Acesse a página oficial da Receita Federal.","Escolha o serviço adequado: consulta, atualização ou comprovante.","Siga as instruções do portal oficial."],"documents":["Número do CPF","Documento de identificação, quando solicitado"],"url":"https://www.gov.br/receitafederal/pt-br/assuntos/meu-cpf","warning":"As exigências variam conforme o serviço. Confira as instruções oficiais."},
  {"title":"Consultar benefício do INSS","category":"Benefícios","summary":"Acesse o canal oficial para acompanhar benefícios e pedidos previdenciários.","steps":["Entre no Meu INSS pelo site ou aplicativo oficial.","Acesse com sua conta gov.br.","Localize o benefício ou requerimento desejado.","Confira eventuais exigências e mensagens."],"documents":["CPF","Conta gov.br","Número do benefício ou protocolo, se houver"],"url":"https://meu.inss.gov.br/","warning":"O Resolve Aqui não concede nem altera benefícios. A análise é feita pelo INSS."},
- {"title":"Encontrar uma Unidade Básica de Saúde","category":"Saúde","summary":"Veja como localizar a unidade de saúde responsável pelo seu endereço.","steps":["Consulte a Secretaria de Saúde ou a prefeitura do município.","Confirme qual UBS atende seu endereço.","Verifique horário, agendamento e documentos antes de sair."],"documents":["Documento de identificação","Cartão SUS, se tiver","Comprovante de residência, se solicitado"],"url":"https://www.gov.br/saude/pt-br","warning":"Em emergência, procure atendimento de urgência ou ligue 192 (SAMU)."},
+ {"title":"Encontrar uma Unidade Básica de Saúde em Aracaju","category":"Saúde","summary":"Orientação local para encontrar uma UBS da rede municipal de Aracaju–SE. A unidade de referência depende do endereço de residência.","steps":["Consulte a lista oficial de Unidades de Saúde da Prefeitura de Aracaju.","Entre em contato com a unidade ou com a Secretaria Municipal da Saúde para confirmar qual equipe atende seu endereço.","Confirme endereço, horário, agendamento e documentos antes de sair."],"documents":["Documento de identificação","Cartão SUS, se tiver","Comprovante de residência, se solicitado"],"url":"https://transparencia.aracaju.se.gov.br/estrutura-administrativa/contato-sms/unidades-de-saude/","warning":"Este guia é exclusivo para Aracaju–SE. A lista e os contatos podem mudar; confirme diretamente com a Prefeitura. Em emergência, procure urgência ou ligue 192 (SAMU).","location_scope":"Aracaju-SE"},
  {"title":"Descartar medicamentos vencidos","category":"Meio ambiente","summary":"Saiba como encaminhar medicamentos vencidos ou sem uso para um ponto de coleta.","steps":["Mantenha o medicamento na embalagem original, se possível.","Procure farmácia ou ponto de coleta que receba medicamentos domiciliares.","Confirme previamente o que o local aceita.","Entregue diretamente no ponto de coleta."],"documents":["Normalmente não é necessário apresentar documentos"],"url":"https://www.gov.br/anvisa/pt-br","warning":"A disponibilidade varia por município. Confirme com a farmácia ou prefeitura."},
  {"title":"Acessar serviços pelo gov.br","category":"Serviços digitais","summary":"Entenda como entrar na conta gov.br e localizar serviços públicos digitais.","steps":["Acesse o portal gov.br.","Entre com CPF e senha da sua conta.","Pesquise o serviço desejado.","Confira se o endereço é realmente gov.br antes de informar dados."],"documents":["CPF","Acesso ao e-mail ou telefone cadastrado, se for necessária validação"],"url":"https://www.gov.br/","warning":"Nunca compartilhe senha ou códigos de autenticação. O Resolve Aqui não solicita esses dados."}
 ]
@@ -46,14 +46,17 @@ def init_db():
     with db() as con:
         con.executescript("""
         CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS guides(id INTEGER PRIMARY KEY, title TEXT NOT NULL, category TEXT NOT NULL, summary TEXT NOT NULL, steps TEXT NOT NULL, documents TEXT NOT NULL, url TEXT NOT NULL, warning TEXT NOT NULL, verified_at TEXT);
+        CREATE TABLE IF NOT EXISTS guides(id INTEGER PRIMARY KEY, title TEXT NOT NULL, category TEXT NOT NULL, summary TEXT NOT NULL, steps TEXT NOT NULL, documents TEXT NOT NULL, url TEXT NOT NULL, warning TEXT NOT NULL, verified_at TEXT, location_scope TEXT NOT NULL DEFAULT 'Brasil');
         CREATE TABLE IF NOT EXISTS favorites(user_id INTEGER NOT NULL, guide_id INTEGER NOT NULL, PRIMARY KEY(user_id,guide_id), FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(guide_id) REFERENCES guides(id));
         CREATE TABLE IF NOT EXISTS consultations(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, question TEXT NOT NULL, answer TEXT NOT NULL, created_at TEXT NOT NULL, FOREIGN KEY(user_id) REFERENCES users(id));
         """)
+        columns = {row[1] for row in con.execute("PRAGMA table_info(guides)").fetchall()}
+        if "location_scope" not in columns:
+            con.execute("ALTER TABLE guides ADD COLUMN location_scope TEXT NOT NULL DEFAULT 'Brasil'")
         if con.execute("SELECT COUNT(*) FROM guides").fetchone()[0] == 0:
             for g in GUIDES:
-                con.execute("INSERT INTO guides(title,category,summary,steps,documents,url,warning,verified_at) VALUES(?,?,?,?,?,?,?,?)",
-                    (g["title"],g["category"],g["summary"],json.dumps(g["steps"],ensure_ascii=False),json.dumps(g["documents"],ensure_ascii=False),g["url"],g["warning"],None))
+                con.execute("INSERT INTO guides(title,category,summary,steps,documents,url,warning,verified_at,location_scope) VALUES(?,?,?,?,?,?,?,?,?)",
+                    (g["title"],g["category"],g["summary"],json.dumps(g["steps"],ensure_ascii=False),json.dumps(g["documents"],ensure_ascii=False),g["url"],g["warning"],None,g.get("location_scope","Brasil")))
 
 @asynccontextmanager
 async def startup(app: FastAPI):
@@ -112,7 +115,7 @@ def current_user(authorization: Optional[str] = Header(default=None)):
     return dict(user)
 
 def guide_dict(r):
-    return {"id":r["id"],"title":r["title"],"category":r["category"],"summary":r["summary"],"steps":json.loads(r["steps"]),"documents":json.loads(r["documents"]),"url":r["url"],"warning":r["warning"],"verified_at":r["verified_at"]}
+    return {"id":r["id"],"title":r["title"],"category":r["category"],"summary":r["summary"],"steps":json.loads(r["steps"]),"documents":json.loads(r["documents"]),"url":r["url"],"warning":r["warning"],"verified_at":r["verified_at"],"location_scope":r["location_scope"]}
 
 @app.get("/api/health")
 def health(): return {"status":"ok","app":"Resolve Aqui API","version":"1.0.0"}
@@ -214,6 +217,6 @@ def admin_guard(x_admin_key:Optional[str]=Header(default=None)):
 @app.post("/api/admin/guides",status_code=201)
 def create_guide(data:GuideIn,_=Depends(admin_guard)):
     with db() as con:
-        cur=con.execute("INSERT INTO guides(title,category,summary,steps,documents,url,warning) VALUES(?,?,?,?,?,?,?)",
-          (data.title,data.category,data.summary,json.dumps(data.steps,ensure_ascii=False),json.dumps(data.documents,ensure_ascii=False),data.url,data.warning))
+        cur=con.execute("INSERT INTO guides(title,category,summary,steps,documents,url,warning,location_scope) VALUES(?,?,?,?,?,?,?,?)",
+          (data.title,data.category,data.summary,json.dumps(data.steps,ensure_ascii=False),json.dumps(data.documents,ensure_ascii=False),data.url,data.warning,"Brasil"))
     return {"id":cur.lastrowid,"message":"Guia cadastrado. Revise a fonte oficial antes de publicar."}
