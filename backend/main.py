@@ -66,6 +66,16 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=orig
 WEB = ROOT / "web"
 if WEB.exists():
     app.mount("/static", StaticFiles(directory=WEB), name="static")
+if (WEB / "icons").exists():
+    app.mount("/icons", StaticFiles(directory=WEB / "icons"), name="icons")
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    return FileResponse(WEB / "manifest.webmanifest", media_type="application/manifest+json")
+
+@app.get("/sw.js")
+def service_worker():
+    return FileResponse(WEB / "sw.js", media_type="application/javascript")
 
 class Register(BaseModel):
     name: str = Field(min_length=2,max_length=80)
